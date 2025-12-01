@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Laravel\Sactum\HasApiTokens;
 use Laravel\Sanctum\HasApiTokens as SanctumHasApiTokens;
 
 class User extends Authenticatable
@@ -57,7 +56,7 @@ class User extends Authenticatable
     ];
     public function rol()
     {
-        return $this->belongsTo(Rol::class,'id_rol'); 
+        return $this->belongsTo(Rol::class,'id_rol');
     }
 
     public function branches()
@@ -73,6 +72,12 @@ class User extends Authenticatable
     public function service(){
         return $this->hasOne(Service::class, 'id_usuario');
     }
+
+    public function images()
+    {
+        return $this->morphMany(\App\Models\Image::class, 'imageable');
+    }
+
     /**
      * The attributes that should be hidden for serialization.
      *
@@ -126,7 +131,7 @@ class User extends Authenticatable
 
         $sortFields = explode(',', request('sort'));
         $allowSort = collect($this->allowSort);
-        
+
         foreach($sortFields as $sortField){
             $direction = 'asc';
             if(substr($sortField, 0, 1) == '-'){

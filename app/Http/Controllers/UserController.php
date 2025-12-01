@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\User;
-use laravel\Sactum\HasApiTokens;
+use laravel\Sanctum\HasApiTokens;
 class UserController extends Controller
 {
     /**
@@ -54,6 +54,39 @@ class UserController extends Controller
     public function update(Request $request, string $id)
     {
         //
+    }
+
+    /**
+     * Guardar foto de perfil del usuario (URL de Cloudinary)
+     */
+    public function updateProfileImage(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user) {
+            return response()->json([
+                'mensaje' => 'Error: Usuario no autenticado'
+            ], 401);
+        }
+
+        $request->validate([
+            'profile_url' => 'required|url',
+        ]);
+
+        // Eliminar imagen de perfil anterior si existe
+        $user->images()->where('type', 'profile')->delete();
+
+        // Crear nueva imagen de perfil
+        $user->images()->create([
+            'url' => $request->profile_url,
+            'type' => 'profile',
+            'descripcion' => 'Foto de perfil del usuario',
+        ]);
+
+        return response()->json([
+            'mensaje' => 'Foto de perfil actualizada con éxito',
+            'user' => $user->load('images')
+        ], 200);
     }
 
     /**

@@ -13,6 +13,7 @@ class AuthController extends Controller
 {
     public function register(Request $request)
     {
+        // VALIDACIONES DE USUARIO
         $rules = [
             'primer_nombre' => 'required|string|max:50',
             'segundo_nombre' => 'nullable|string|max:50',
@@ -25,16 +26,8 @@ class AuthController extends Controller
             'id_rol' => 'required|exists:rols,id'
         ];
 
-        if($request->id_rol == 3){
-            $rules = array_merge($rules, [
-                'nombre_sucursal' => 'required|string|max:50',
-                'nit' => 'required|string|max:50',
-                'longitud' => 'nullable|string|max:50',
-                'latitud' => 'nullable|string|max:50',
-                'direccion' => 'nullable|string|max:50'
-            ]);
-        }
-        if($request->id_rol == 4){
+        // VALIDACIONES PARA DOMICILIARIO
+        if ($request->id_rol == 4) {
             $rules = array_merge($rules, [
                 'placa' => 'required|string|max:20',
                 'tipo_vehiculo' => 'required|string',
@@ -42,7 +35,10 @@ class AuthController extends Controller
                 'run_vig' => 'required|date'
             ]);
         }
+
         $data = $request->validate($rules);
+
+        // CREAR USUARIO
         $user = User::create([
             'primer_nombre' => $data['primer_nombre'],
             'segundo_nombre' => $data['segundo_nombre'] ?? null,
@@ -56,17 +52,9 @@ class AuthController extends Controller
             'cuenta_bancaria' => $data['cuenta_bancaria']
         ]);
 
-        if($data['id_rol'] == 3){
-            Branch::create([
-                'id_usuario' => $user->id,
-                'nombre_sucursal' => $data['nombre_sucursal'],
-                'nit' => $data['nit'],
-                'longitud' => $data['longitud'],
-                'latitud' => $data['latitud'],
-                'direccion' => $data['direccion'] ?? null
-            ]);
-        }
-        if($data['id_rol'] == 4){
+        // CREAR VEHÍCULO AUTOMÁTICAMENTE SI ES DOMICILIARIO
+        if ($data['id_rol'] == 4) {
+
             Vehicle::create([
                 'id_usuario' => $user->id,
                 'placa' => $data['placa'],
@@ -88,11 +76,12 @@ class AuthController extends Controller
             'usuario' => $user,
             'token' => $token,
             'token_type' => 'Bearer'
-        ],200);
+        ], 200);
     }
 
-    public function login(Request $request){
 
+    public function login(Request $request)
+    {
         $credenciales = $request->validate([
             'correo' => 'required|email',
             'password' => 'required|string'
@@ -100,13 +89,14 @@ class AuthController extends Controller
 
         $user = User::where('correo', $credenciales['correo'])->first();
 
-        if(!$user || !Hash::check($credenciales['password'], $user->password)){
+        if (!$user || !Hash::check($credenciales['password'], $user->password)) {
             return response()->json([
                 'mensaje' => 'Credenciales incorrectas'
-            ],401);
+            ], 401);
         }
 
         $token = $user->createToken('auth-token')->plainTextToken;
+
         return response()->json([
             'mensaje' => 'Login Exitoso',
             'usuario' => $user,

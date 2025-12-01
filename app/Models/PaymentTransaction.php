@@ -15,4 +15,9 @@ class PaymentTransaction extends Model
     {
         return $this->hasOne(Shipment::class,'id_transaccion');
     }
+
+    public function images()
+    {
+        return $this->morphMany(\App\Models\Image::class, 'imageable');
+    }
 }

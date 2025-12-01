@@ -12,12 +12,18 @@ class Branch extends Model
         'id_usuario',
         'nombre_sucursal',
         'nit',
-        'longitud',
+        'img_nit',
+
         'latitud',
+        'longitud',
         'direccion'
     ];
     public function user()
     {
         return $this->belongsTo(User::class,'id_usuario');
+    }
+    public function images()
+    {
+        return $this->morphMany(\App\Models\Image::class, 'imageable');
     }
 }
