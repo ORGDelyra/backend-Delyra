@@ -8,6 +8,8 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+
 
 class CartController extends Controller
 {
@@ -418,9 +420,9 @@ class CartController extends Controller
     public function index()
     {
         $user = Auth::user();
-        
-        \Log::info('📋 index() - Buscando carritos del usuario: ' . $user->id);
-        
+
+        Log::info('📋 index() - Buscando carritos del usuario: ' . $user->id);
+
         // Obtener solo carritos activos (no pedidos confirmados)
         // Busca tanto NULL como cadena vacía por si la BD tiene inconsistencias
         $carts = Cart::where('id_usuario', $user->id)
@@ -432,10 +434,10 @@ class CartController extends Controller
             ->with(['products.images', 'products.category'])
             ->orderBy('created_at', 'desc')
             ->get();
-        
-        \Log::info('✅ Carritos encontrados: ' . $carts->count());
-        \Log::info('📦 Carritos IDs: ' . $carts->pluck('id')->toJson());
-        
+
+        Log::info('✅ Carritos encontrados: ' . $carts->count());
+        Log::info('📦 Carritos IDs: ' . $carts->pluck('id')->toJson());
+
         return response()->json($carts);
     }
 
@@ -462,7 +464,7 @@ class CartController extends Controller
     {
         //
     }
-    
+
     /**
      * Show the form for editing the specified resource.
      */
@@ -495,48 +497,48 @@ class CartController extends Controller
     {
         try {
             $user = Auth::user();
-            
+
             // Validar que el carrito pertenezca al usuario
             $cart = Cart::where('id', $cart)
                 ->where('id_usuario', $user->id)
                 ->first();
-            
+
             if (!$cart) {
                 return response()->json(['mensaje' => 'Carrito no encontrado'], 404);
             }
-            
+
             // Validar cantidad solicitada
             $request->validate([
                 'cantidad' => 'required|integer|min:1'
             ]);
-            
+
             $nuevaCantidad = $request->input('cantidad');
-            
+
             // Verificar que el producto existe y tiene stock suficiente
             $productModel = Product::find($product);
-            
+
             if (!$productModel) {
                 return response()->json(['mensaje' => 'Producto no encontrado'], 404);
             }
-            
+
             if ($nuevaCantidad > $productModel->cantidad) {
                 return response()->json([
                     'mensaje' => "Solo hay {$productModel->cantidad} unidades disponibles",
                     'stock_disponible' => $productModel->cantidad
                 ], 400);
             }
-            
+
             // Actualizar cantidad en la tabla pivote
             $cart->products()->updateExistingPivot($product, [
                 'cantidad' => $nuevaCantidad
             ]);
-            
+
             return response()->json([
                 'mensaje' => 'Cantidad actualizada correctamente',
                 'producto' => $productModel->nombre,
                 'nueva_cantidad' => $nuevaCantidad
             ], 200);
-            
+
         } catch (\Exception $e) {
             return response()->json([
                 'mensaje' => 'Error al actualizar cantidad',
@@ -553,22 +555,22 @@ class CartController extends Controller
     {
         try {
             $user = Auth::user();
-            
+
             $cart = Cart::where('id', $cart)
                 ->where('id_usuario', $user->id)
                 ->first();
-            
+
             if (!$cart) {
                 return response()->json(['mensaje' => 'Carrito no encontrado'], 404);
             }
-            
+
             // Eliminar el producto del carrito (tabla pivote)
             $cart->products()->detach($product);
-            
+
             return response()->json([
                 'mensaje' => 'Producto eliminado del carrito'
             ], 200);
-            
+
         } catch (\Exception $e) {
             return response()->json([
                 'mensaje' => 'Error al eliminar producto',

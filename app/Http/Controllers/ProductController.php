@@ -8,6 +8,7 @@ use App\Models\Cart;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 
 
@@ -195,7 +196,7 @@ class ProductController extends Controller
         }
 
         // Log inicial
-        \Log::info('🛒 addToCart - Usuario: ' . $user->id . ', Producto: ' . $product->id);
+        Log::info('🛒 addToCart - Usuario: ' . $user->id . ', Producto: ' . $product->id);
         
         // Buscar carrito activo SIN estado_pedido (no reutilizar pedidos confirmados)
         // Busca tanto NULL como cadena vacía por si la BD tiene inconsistencias
@@ -207,18 +208,18 @@ class ProductController extends Controller
             })
             ->first();
 
-        \Log::info('🔍 Carrito encontrado: ' . ($cart ? $cart->id : 'ninguno'));
+        Log::info('🔍 Carrito encontrado: ' . ($cart ? $cart->id : 'ninguno'));
 
         // Si no existe carrito activo, crear uno nuevo
         if (!$cart) {
-            \Log::info('➕ Creando nuevo carrito para usuario ' . $user->id);
+            Log::info('➕ Creando nuevo carrito para usuario ' . $user->id);
             
             $cart = Cart::create([
                 'id_usuario' => $user->id,
                 'activo' => 1
             ]);
             
-            \Log::info('✅ Carrito creado con ID: ' . $cart->id);
+            Log::info('✅ Carrito creado con ID: ' . $cart->id);
         }
 
         // Verificar si el producto ya está en el carrito
@@ -249,7 +250,7 @@ class ProductController extends Controller
         // Recargar carrito con todas las relaciones necesarias
         $cart->load(['products.images', 'products.category']);
         
-        \Log::info('Producto agregado al carrito', [
+        Log::info('Producto agregado al carrito', [
             'cart_id' => $cart->id,
             'producto_id' => $product->id,
             'cantidad' => $cantidad,
