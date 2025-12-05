@@ -46,6 +46,7 @@ Route::get('/category', [CategoryController::class, 'index']);
 // Ver información de una sucursal (público)
 Route::get('/branch/{id}', [BranchController::class, 'show']);
 
+Route::apiResource('rol', RolController::class);
 // ==========================================
 // RUTAS PROTEGIDAS (Requieren autenticación)
 // ==========================================
@@ -56,7 +57,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // RECURSOS API ESTÁNDAR (CRUD completo)
     // ==========================================
 
-    Route::apiResource('rol', RolController::class);
+    
     Route::apiResource('user', UserController::class);
     Route::apiResource('branch', BranchController::class)->except(['show']);
 
