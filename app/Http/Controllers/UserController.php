@@ -151,3 +151,4 @@ class UserController extends Controller
 
 
 //siendo la 1 de la mañana escrib este comentario con 3 horas de sueño y con 2 latas de monster encima
+//siendo la 1 de la mañana escrib este comentario con 3 horas de sueño y con 2 latas de monster encima
