@@ -31,7 +31,8 @@ class User extends Authenticatable
         'correo',
         'password',
         'cuenta_bancaria',
-        'id_rol'
+        'id_rol',
+        'profile_url'
     ];
 
     protected $allowInclude = [
