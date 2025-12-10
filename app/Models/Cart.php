@@ -14,20 +14,13 @@ class Cart extends Model
         'latitud_entrega',
         'longitud_entrega',
         'id_domiciliario',
-        'estado_pedido',
-        'mercado_pago_preference_id',
-        'estado_pago',
-        'metodo_pago',
-        'fecha_pago_confirmado'
+        'estado_pedido'
     ];
 
     protected $casts = [
         'activo' => 'boolean',
         'tipo_entrega' => 'string',
-        'estado_pedido' => 'string',
-        'estado_pago' => 'string',
-        'metodo_pago' => 'string',
-        'fecha_pago_confirmado' => 'datetime'
+        'estado_pedido' => 'string'
     ];
 
     public function products()

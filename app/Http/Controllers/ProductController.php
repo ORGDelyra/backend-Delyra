@@ -31,9 +31,7 @@ class ProductController extends Controller
     // Lista pública de productos (catálogo general)
     public function publicIndex()
     {
-        $products = Product::where('cantidad', '>', 0)
-            ->with('category','user','images')
-            ->get();
+        $products = Product::with('category','user')->get();
         return response()->json($products);
     }
 

@@ -8,8 +8,6 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-
 
 class CartController extends Controller
 {
@@ -35,34 +33,17 @@ class CartController extends Controller
         try {
             DB::beginTransaction();
 
-            // ✅ IMPORTANTE: Eliminar el carrito temporal existente (activo=1)
-            $carritoTemporal = Cart::where('id_usuario', $user->id)
-                ->where('activo', 1)
-                ->whereNull('estado_pedido')
-                ->first();
-
-            if ($carritoTemporal) {
-                Log::info('🗑️ Eliminando carrito temporal ID: ' . $carritoTemporal->id);
-                // Eliminar productos del carrito temporal
-                $carritoTemporal->products()->detach();
-                // Eliminar el carrito temporal
-                $carritoTemporal->delete();
-            }
-
-            // ✅ Crear NUEVO carrito como PEDIDO confirmado
+            // Crear carrito
             $cart = Cart::create([
                 'id_usuario' => $user->id,
                 'tipo_entrega' => $data['tipo_entrega'],
                 'direccion_entrega' => $data['direccion_entrega'] ?? null,
                 'latitud_entrega' => $data['latitud_entrega'] ?? null,
                 'longitud_entrega' => $data['longitud_entrega'] ?? null,
-                'activo' => 0,                  // ✅ Pedido confirmado (no es carrito temporal)
-                'estado_pedido' => 'pendiente'  // ✅ Estado inicial del pedido
+                'estado_pedido' => 'pendiente'
             ]);
 
-            Log::info('✅ Pedido creado ID: ' . $cart->id . ' para usuario: ' . $user->id);
-
-            // Agregar productos al pedido
+            // Agregar productos al carrito
             $total = 0;
             $productos_data = [];
 
@@ -71,15 +52,11 @@ class CartController extends Controller
 
                 // Validar que hay suficiente stock
                 if ($producto->cantidad < $producto_data['cantidad']) {
-                    throw new \Exception("Stock insuficiente para el producto: {$producto->nombre}. Solo quedan {$producto->cantidad} unidades disponibles");
+                    throw new \Exception("Stock insuficiente para el producto: {$producto->nombre}");
                 }
 
                 $subtotal = $producto_data['cantidad'] * $producto_data['precio_unitario'];
                 $total += $subtotal;
-
-                // Descontar del inventario
-                $producto->cantidad -= $producto_data['cantidad'];
-                $producto->save();
 
                 // Usar pivot table
                 $cart->products()->attach($producto_data['id_producto'], [
@@ -130,9 +107,8 @@ class CartController extends Controller
     {
         $user = Auth::user();
 
-        $pedidos = Cart::with(['products.images', 'products.category', 'domiciliario'])
+        $pedidos = Cart::with('products', 'domiciliario')
             ->where('id_usuario', $user->id)
-            ->where('activo', false) // Solo pedidos confirmados
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -157,9 +133,7 @@ class CartController extends Controller
                     'nombre' => $p->nombre,
                     'cantidad' => $p->pivot->cantidad,
                     'precio_unitario' => $p->pivot->precio_unitario,
-                    'subtotal' => $p->pivot->cantidad * $p->pivot->precio_unitario,
-                    'images' => $p->images,
-                    'category' => $p->category
+                    'subtotal' => $p->pivot->cantidad * $p->pivot->precio_unitario
                 ]),
                 'created_at' => $pedido->created_at
             ];
@@ -432,26 +406,7 @@ class CartController extends Controller
      */
     public function index()
     {
-        $user = Auth::user();
-
-        Log::info('📋 index() - Buscando carritos del usuario: ' . $user->id);
-
-        // Obtener solo carritos activos (no pedidos confirmados)
-        // Busca tanto NULL como cadena vacía por si la BD tiene inconsistencias
-        $carts = Cart::where('id_usuario', $user->id)
-            ->where('activo', 1)
-            ->where(function($query) {
-                $query->whereNull('estado_pedido')
-                      ->orWhere('estado_pedido', '');
-            })
-            ->with(['products.images', 'products.category'])
-            ->orderBy('created_at', 'desc')
-            ->get();
-
-        Log::info('✅ Carritos encontrados: ' . $carts->count());
-        Log::info('📦 Carritos IDs: ' . $carts->pluck('id')->toJson());
-
-        return response()->json($carts);
+        //
     }
 
     /**
@@ -479,7 +434,7 @@ class CartController extends Controller
     }
 
     /**
-     * Show the form for editing the specified resource.
+     * Show the form for editing the resource.
      */
     public function edit(Cart $cart)
     {
@@ -500,226 +455,5 @@ class CartController extends Controller
     public function destroy(Cart $cart)
     {
         //
-    }
-
-    /**
-     * Actualizar la cantidad de un producto en el carrito
-     * PUT /api/cart/{cart}/products/{product}
-     */
-    public function updateQuantity(Request $request, $cart, $product)
-    {
-        try {
-            $user = Auth::user();
-
-            // Validar que el carrito pertenezca al usuario
-            $cart = Cart::where('id', $cart)
-                ->where('id_usuario', $user->id)
-                ->first();
-
-            if (!$cart) {
-                return response()->json(['mensaje' => 'Carrito no encontrado'], 404);
-            }
-
-            // Validar cantidad solicitada
-            $request->validate([
-                'cantidad' => 'required|integer|min:1'
-            ]);
-
-            $nuevaCantidad = $request->input('cantidad');
-
-            // Verificar que el producto existe y tiene stock suficiente
-            $productModel = Product::find($product);
-
-            if (!$productModel) {
-                return response()->json(['mensaje' => 'Producto no encontrado'], 404);
-            }
-
-            if ($nuevaCantidad > $productModel->cantidad) {
-                return response()->json([
-                    'mensaje' => "Solo hay {$productModel->cantidad} unidades disponibles",
-                    'stock_disponible' => $productModel->cantidad
-                ], 400);
-            }
-
-            // Actualizar cantidad en la tabla pivote
-            $cart->products()->updateExistingPivot($product, [
-                'cantidad' => $nuevaCantidad
-            ]);
-
-            return response()->json([
-                'mensaje' => 'Cantidad actualizada correctamente',
-                'producto' => $productModel->nombre,
-                'nueva_cantidad' => $nuevaCantidad
-            ], 200);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'mensaje' => 'Error al actualizar cantidad',
-                'error' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
-     * Eliminar un producto del carrito
-     * DELETE /api/cart/{cart}/products/{product}
-     */
-    public function removeProduct($cart, $product)
-    {
-        try {
-            $user = Auth::user();
-
-            $cart = Cart::where('id', $cart)
-                ->where('id_usuario', $user->id)
-                ->first();
-
-            if (!$cart) {
-                return response()->json(['mensaje' => 'Carrito no encontrado'], 404);
-            }
-
-            // Eliminar el producto del carrito (tabla pivote)
-            $cart->products()->detach($product);
-
-            return response()->json([
-                'mensaje' => 'Producto eliminado del carrito'
-            ], 200);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'mensaje' => 'Error al eliminar producto',
-                'error' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
-     * ✅ Obtener pedidos disponibles para que domiciliarios puedan tomar
-     * GET /api/cart/pedidos-disponibles
-     */
-    public function pedidosDisponibles(Request $request)
-    {
-        $user = Auth::user();
-
-        // Verificar que sea domiciliario (rol 4)
-        if ($user->id_rol !== 4) {
-            return response()->json([
-                'mensaje' => 'Solo los domiciliarios pueden ver pedidos disponibles'
-            ], 403);
-        }
-
-        Log::info("📋 pedidosDisponibles() - Domiciliario: {$user->id}");
-
-        // Pedidos con:
-        // - activo = 0 (pedido confirmado)
-        // - tipo_entrega = 'domicilio'
-        // - estado_pedido = 'listo'
-        // - id_domiciliario = NULL (sin asignar)
-        $pedidos = Cart::with(['products', 'user'])
-            ->where('activo', 0)
-            ->where('tipo_entrega', 'domicilio')
-            ->where('estado_pedido', 'listo')
-            ->whereNull('id_domiciliario')
-            ->orderBy('created_at', 'asc')
-            ->get();
-
-        Log::info("✅ Pedidos disponibles encontrados: " . $pedidos->count());
-
-        // Formatear respuesta
-        $pedidos_formateados = $pedidos->map(function ($pedido) {
-            return [
-                'id' => $pedido->id,
-                'estado_pedido' => $pedido->estado_pedido,
-                'tipo_entrega' => $pedido->tipo_entrega,
-                'cliente' => [
-                    'id' => $pedido->user->id,
-                    'nombre_completo' => $pedido->user->primer_nombre . ' ' . $pedido->user->primer_apellido,
-                    'telefono' => $pedido->user->telefono,
-                    'correo' => $pedido->user->correo
-                ],
-                'direccion_entrega' => $pedido->direccion_entrega,
-                'latitud_entrega' => $pedido->latitud_entrega,
-                'longitud_entrega' => $pedido->longitud_entrega,
-                'total' => $pedido->products->sum(fn($p) => $p->pivot->cantidad * $p->pivot->precio_unitario),
-                'cantidad_productos' => $pedido->products->count(),
-                'productos' => $pedido->products->map(fn($p) => [
-                    'id' => $p->id,
-                    'nombre' => $p->nombre,
-                    'cantidad' => $p->pivot->cantidad,
-                    'precio_unitario' => $p->pivot->precio_unitario
-                ]),
-                'created_at' => $pedido->created_at
-            ];
-        });
-
-        return response()->json($pedidos_formateados);
-    }
-
-    /**
-     * ✅ Domiciliario toma un pedido disponible (se asigna a sí mismo)
-     * PUT /api/cart/{id}/tomar-pedido
-     */
-    public function tomarPedido(Request $request, Cart $cart)
-    {
-        $user = Auth::user();
-
-        // Verificar que sea domiciliario (rol 4)
-        if ($user->id_rol !== 4) {
-            return response()->json([
-                'mensaje' => 'Solo los domiciliarios pueden tomar pedidos'
-            ], 403);
-        }
-
-        Log::info("🚚 tomarPedido() - Domiciliario: {$user->id}, Pedido: {$cart->id}");
-
-        // Verificar que el pedido sea de domicilio
-        if ($cart->tipo_entrega !== 'domicilio') {
-            return response()->json([
-                'mensaje' => 'Este pedido no es de domicilio'
-            ], 400);
-        }
-
-        // Verificar que el pedido esté disponible (sin domiciliario asignado)
-        if ($cart->id_domiciliario !== null) {
-            return response()->json([
-                'mensaje' => 'Este pedido ya fue tomado por otro domiciliario'
-            ], 409); // Conflict
-        }
-
-        // Verificar que el pedido esté listo para entregar
-        if ($cart->estado_pedido !== 'listo') {
-            return response()->json([
-                'mensaje' => 'Este pedido aún no está listo para entregar. Estado actual: ' . $cart->estado_pedido
-            ], 400);
-        }
-
-        // ✅ Asignar el domiciliario y cambiar estado a 'en_camino'
-        $cart->update([
-            'id_domiciliario' => $user->id,
-            'estado_pedido' => 'en_camino'
-        ]);
-
-        Log::info("✅ Domiciliario {$user->id} tomó el pedido {$cart->id}");
-
-        // Recargar con relaciones
-        $cart->load(['products', 'user']);
-
-        return response()->json([
-            'mensaje' => 'Pedido tomado exitosamente',
-            'pedido' => [
-                'id' => $cart->id,
-                'id_domiciliario' => $cart->id_domiciliario,
-                'estado_pedido' => $cart->estado_pedido,
-                'tipo_entrega' => $cart->tipo_entrega,
-                'cliente' => [
-                    'nombre_completo' => $cart->user->primer_nombre . ' ' . $cart->user->primer_apellido,
-                    'telefono' => $cart->user->telefono
-                ],
-                'direccion_entrega' => $cart->direccion_entrega,
-                'latitud_entrega' => $cart->latitud_entrega,
-                'longitud_entrega' => $cart->longitud_entrega,
-                'total' => $cart->products->sum(fn($p) => $p->pivot->cantidad * $p->pivot->precio_unitario),
-                'productos' => $cart->products
-            ]
-        ], 200);
     }
 }

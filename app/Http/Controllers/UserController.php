@@ -77,21 +77,16 @@ class UserController extends Controller
             'primer_nombre' => 'sometimes|string|max:100',
             'primer_apellido' => 'sometimes|string|max:100',
             'foto_url' => 'nullable|url',  // URL de foto de perfil (Cloudinary)
-            'profile_url' => 'nullable|url',  // Alias para foto_url
         ]);
 
         // Actualizar campos básicos
         $userToUpdate->update($data);
 
-        // Si incluye foto_url o profile_url, guardar como imagen de perfil
-        $profileUrl = $data['profile_url'] ?? $data['foto_url'] ?? null;
-        if ($profileUrl) {
-            $userToUpdate->profile_url = $profileUrl;
-            $userToUpdate->save();
-            
+        // Si incluye foto_url, guardar como imagen de perfil
+        if (!empty($data['foto_url'])) {
             $userToUpdate->images()->where('type', 'profile')->delete();
             $userToUpdate->images()->create([
-                'url' => $profileUrl,
+                'url' => $data['foto_url'],
                 'type' => 'profile',
                 'descripcion' => 'Foto de perfil del usuario',
             ]);
@@ -105,7 +100,6 @@ class UserController extends Controller
 
     /**
      * Guardar foto de perfil del usuario (URL de Cloudinary)
-     * POST /api/user/profile-image
      */
     public function updateProfileImage(Request $request)
     {
@@ -121,12 +115,10 @@ class UserController extends Controller
             'profile_url' => 'required|url',
         ]);
 
-        // Actualizar el campo profile_url directamente en el usuario
-        $user->profile_url = $request->profile_url;
-        $user->save();
-
-        // También guardar en la tabla images para mantener compatibilidad
+        // Eliminar imagen de perfil anterior si existe
         $user->images()->where('type', 'profile')->delete();
+
+        // Crear nueva imagen de perfil
         $user->images()->create([
             'url' => $request->profile_url,
             'type' => 'profile',
@@ -134,8 +126,8 @@ class UserController extends Controller
         ]);
 
         return response()->json([
-            'mensaje' => 'Foto de perfil actualizada correctamente',
-            'usuario' => $user->load('images')
+            'mensaje' => 'Foto de perfil actualizada con éxito',
+            'user' => $user->load('images')
         ], 200);
     }
 
