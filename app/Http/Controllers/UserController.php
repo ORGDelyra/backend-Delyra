@@ -88,7 +88,7 @@ class UserController extends Controller
         if ($profileUrl) {
             $userToUpdate->profile_url = $profileUrl;
             $userToUpdate->save();
-            
+
             $userToUpdate->images()->where('type', 'profile')->delete();
             $userToUpdate->images()->create([
                 'url' => $profileUrl,
@@ -147,3 +147,7 @@ class UserController extends Controller
         //
     }
 }
+
+
+
+//siendo la 1 de la mañana escrib este comentario con 3 horas de sueño y con 2 latas de monster encima

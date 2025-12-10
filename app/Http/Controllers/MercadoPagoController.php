@@ -157,7 +157,7 @@ class MercadoPagoController extends Controller
 
                 if ($carrito) {
                     $estadoPago = $resultado['estado'];
-                    
+
                     if ($estadoPago === 'approved') {
                         $carrito->update([
                             'estado_pago' => 'confirmado',

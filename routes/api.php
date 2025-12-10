@@ -58,7 +58,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // RECURSOS API ESTÁNDAR (CRUD completo)
     // ==========================================
 
-    
+
     Route::apiResource('user', UserController::class);
     Route::apiResource('branch', BranchController::class)->except(['show']);
 
