@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
 class ChatController extends Controller
+{
     /**
      * Obtener chats recientes de soporte (no de pedido) tipo WhatsApp
      * GET /api/chat/soporte/recientes
@@ -24,9 +25,10 @@ class ChatController extends Controller
                 $q->where('id_remitente', $userId)
                   ->orWhere('id_destinatario', $userId);
             })
-            ->with(['remitente', 'destinatario'])
             ->orderBy('created_at', 'desc')
             ->get();
+        // Forzar carga de relaciones para evitar null
+        $mensajes->load(['remitente', 'destinatario']);
 
         // Agrupar por el otro participante y tomar el último mensaje de cada chat
         $chats = $mensajes->groupBy(function($msg) use ($userId) {
@@ -34,11 +36,28 @@ class ChatController extends Controller
         })->map(function($msgs, $otherUserId) {
             $ultimo = $msgs->first();
             $otroUsuario = $ultimo->id_remitente == auth()->id() ? $ultimo->destinatario : $ultimo->remitente;
+            if ($otroUsuario && method_exists($otroUsuario, 'getAttribute')) {
+                $id = $otroUsuario->getAttribute('id');
+                $nombre = trim(($otroUsuario->getAttribute('primer_nombre') ?? '') . ' ' . ($otroUsuario->getAttribute('primer_apellido') ?? ''));
+                $correo = $otroUsuario->getAttribute('correo') ?? '';
+            } else {
+                // Si la relación no está cargada, intenta buscar el usuario
+                $userModel = \App\Models\User::find($otherUserId);
+                if ($userModel && method_exists($userModel, 'getAttribute')) {
+                    $id = $userModel->getAttribute('id');
+                    $nombre = trim(($userModel->getAttribute('primer_nombre') ?? '') . ' ' . ($userModel->getAttribute('primer_apellido') ?? ''));
+                    $correo = $userModel->getAttribute('correo') ?? '';
+                } else {
+                    $id = $otherUserId;
+                    $nombre = '';
+                    $correo = '';
+                }
+            }
             return [
                 'usuario' => [
-                    'id' => $otroUsuario->id,
-                    'nombre' => $otroUsuario->primer_nombre . ' ' . $otroUsuario->primer_apellido,
-                    'correo' => $otroUsuario->correo,
+                    'id' => $id,
+                    'nombre' => $nombre,
+                    'correo' => $correo,
                 ],
                 'ultimo_mensaje' => [
                     'contenido' => $ultimo->contenido,
@@ -50,11 +69,7 @@ class ChatController extends Controller
 
         return response()->json($chats);
     }
-{
-    /**
-     * Obtener mensajes de un pedido o de soporte
-     * GET /api/chat/{id_pedido} (pedido) o /api/chat/soporte/{userId} (soporte)
-     */
+
     public function getMessages($id, Request $request)
     {
         $user = Auth::user();
