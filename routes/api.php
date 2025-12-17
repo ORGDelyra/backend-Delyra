@@ -48,6 +48,7 @@ Route::get('/category', [CategoryController::class, 'index']);
 Route::get('/branch/{id}', [BranchController::class, 'show']);
 
 Route::apiResource('rol', RolController::class);
+Route::apiResource('category', CategoryController::class)->except(['index']);
 // ==========================================
 // RUTAS PROTEGIDAS (Requieren autenticación)
 // ==========================================
@@ -88,7 +89,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/product', [ProductController::class, 'index']);
 
     // Categorías (CRUD completo para admins, excepto index que es público)
-    Route::apiResource('category', CategoryController::class)->except(['index']);
+
 
     // ==========================================
     // MÉTODOS ESPECIALES - CARRITO Y PEDIDOS (ANTES de apiResource)
