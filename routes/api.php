@@ -15,6 +15,7 @@ use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\ImageUploadController;
 use App\Http\Controllers\CloudinaryController;
 use App\Http\Controllers\ChatController;
+use App\Http\Controllers\MercadoPagoController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -54,16 +55,22 @@ Route::apiResource('category', CategoryController::class)->except(['index']);
 
 Route::middleware('auth:sanctum')->group(function () {
 
+    // Chats recientes de soporte (tipo WhatsApp)
+    Route::get('/chat/soporte/recientes', [ChatController::class, 'getRecentChats']);
+
+    // Perfil del usuario autenticado
+    Route::get('/user/profile', [UserController::class, 'profile']);
     // ==========================================
     // RECURSOS API ESTÁNDAR (CRUD completo)
     // ==========================================
 
-    
+
     Route::apiResource('user', UserController::class);
     Route::apiResource('branch', BranchController::class)->except(['show']);
 
     // Métodos especiales para imágenes de usuario
     Route::post('/user/profile-image', [UserController::class, 'updateProfileImage']);
+    Route::put('/user/profile-image', [UserController::class, 'updateProfileImage']);
 
     // Subida de archivos a Cloudinary vía backend (devuelve `secure_url`)
     Route::post('/upload/cloudinary', [ImageUploadController::class, 'upload']);
@@ -118,6 +125,20 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Agregar producto al carrito (método antiguo, mantener por compatibilidad)
     Route::post('/cart/{cart}/products', [CartController::class, 'addProduct']);
+
+    // ==========================================
+    // MERCADO PAGO - ENDPOINTS
+    // ==========================================
+    Route::prefix('mercado-pago')->group(function () {
+        // CLIENTE: Crear preferencia de pago
+        Route::post('/crear-preferencia', [MercadoPagoController::class, 'crearPreferencia']);
+
+        // CLIENTE: Verificar estado del pago
+        Route::get('/verificar/{preference_id}', [MercadoPagoController::class, 'verificarPago']);
+
+        // WEBHOOK: Notificaciones de Mercado Pago (sin autenticación)
+        Route::post('/webhook', [MercadoPagoController::class, 'webhook'])->withoutMiddleware(['auth:sanctum']);
+    });
 
     // Eliminar producto del carrito
     Route::delete('/cart/{cart}/products/{product}', [CartController::class, 'removeProduct']);
@@ -194,11 +215,14 @@ Route::middleware('auth:sanctum')->group(function () {
     // MÉTODOS ESPECIALES - CHAT
     // ==========================================
 
-    // CHAT: Obtener mensajes de un pedido
-    Route::get('/chat/{id_pedido}', [ChatController::class, 'getMessages']);
 
-    // CHAT: Enviar un mensaje en el pedido
-    Route::post('/chat/{id_pedido}/enviar', [ChatController::class, 'sendMessage']);
+    // CHAT: Obtener mensajes de un pedido o soporte
+    Route::get('/chat/{id}', [ChatController::class, 'getMessages']);
+    Route::get('/chat/soporte/{userId}', [ChatController::class, 'getMessages'])->name('chat.soporte.get');
+
+    // CHAT: Enviar un mensaje en el pedido o soporte
+    Route::post('/chat/{id}/enviar', [ChatController::class, 'sendMessage']);
+    Route::post('/chat/soporte/{userId}/enviar', [ChatController::class, 'sendMessage'])->name('chat.soporte.enviar');
 
     // CHAT: Obtener todas las conversaciones del usuario
     Route::get('/conversaciones', [ChatController::class, 'getConversations']);

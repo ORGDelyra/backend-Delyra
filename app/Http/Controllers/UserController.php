@@ -4,15 +4,35 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\User;
-use laravel\Sanctum\HasApiTokens;
+// use laravel\Sanctum\HasApiTokens;
+use Illuminate\Support\Facades\Log;
 class UserController extends Controller
 {
+    /**
+     * Devuelve el perfil del usuario autenticado
+     * GET /api/user/profile
+     */
+    public function profile(Request $request)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['mensaje' => 'No autenticado'], 401);
+        }
+        return response()->json(['usuario' => $user->load('images')], 200);
+    }
+
     /**
      * Display a listing of the resource.
      */
     public function index()
     {
-        $users = User::included()->filter()->sort()->get();
+        $query = User::included()->filter()->sort();
+        $perPage = request('per_page');
+        if ($perPage) {
+            $users = $query->paginate($perPage);
+        } else {
+            $users = $query->get();
+        }
         return response()->json($users);
     }
 
@@ -75,18 +95,25 @@ class UserController extends Controller
             'email' => 'sometimes|email|unique:users,email,' . $id,
             'telefono' => 'sometimes|string|max:20',
             'primer_nombre' => 'sometimes|string|max:100',
+            'segundo_nombre' => 'sometimes|string|max:100',
             'primer_apellido' => 'sometimes|string|max:100',
+            'segundo_apellido' => 'sometimes|string|max:100',
             'foto_url' => 'nullable|url',  // URL de foto de perfil (Cloudinary)
+            'profile_url' => 'nullable|url',  // Alias para foto_url
         ]);
 
         // Actualizar campos básicos
         $userToUpdate->update($data);
 
-        // Si incluye foto_url, guardar como imagen de perfil
-        if (!empty($data['foto_url'])) {
+        // Si incluye foto_url o profile_url, guardar como imagen de perfil
+        $profileUrl = $data['profile_url'] ?? $data['foto_url'] ?? null;
+        if ($profileUrl) {
+            $userToUpdate->profile_url = $profileUrl;
+            $userToUpdate->save();
+
             $userToUpdate->images()->where('type', 'profile')->delete();
             $userToUpdate->images()->create([
-                'url' => $data['foto_url'],
+                'url' => $profileUrl,
                 'type' => 'profile',
                 'descripcion' => 'Foto de perfil del usuario',
             ]);
@@ -100,35 +127,41 @@ class UserController extends Controller
 
     /**
      * Guardar foto de perfil del usuario (URL de Cloudinary)
+     * POST /api/user/profile-image
      */
     public function updateProfileImage(Request $request)
     {
         $user = $request->user();
-
         if (!$user) {
-            return response()->json([
-                'mensaje' => 'Error: Usuario no autenticado'
-            ], 401);
+            return response()->json(['message' => 'No autenticado'], 401);
         }
 
-        $request->validate([
-            'profile_url' => 'required|url',
-        ]);
+        $url = $request->input('url') ?? $request->input('profile_url');
+        if (!$url || !filter_var($url, FILTER_VALIDATE_URL)) {
+            return response()->json(['message' => 'URL de imagen no válida'], 422);
+        }
 
-        // Eliminar imagen de perfil anterior si existe
-        $user->images()->where('type', 'profile')->delete();
+        try {
+            $user->profile_url = $url;
+            $user->save();
 
-        // Crear nueva imagen de perfil
-        $user->images()->create([
-            'url' => $request->profile_url,
-            'type' => 'profile',
-            'descripcion' => 'Foto de perfil del usuario',
-        ]);
+            if (method_exists($user, 'images')) {
+                $user->images()->where('type', 'profile')->delete();
+                $user->images()->create([
+                    'url' => $url,
+                    'type' => 'profile',
+                    'descripcion' => 'Foto de perfil del usuario',
+                ]);
+            }
 
-        return response()->json([
-            'mensaje' => 'Foto de perfil actualizada con éxito',
-            'user' => $user->load('images')
-        ], 200);
+            return response()->json([
+                'mensaje' => 'Foto de perfil actualizada correctamente',
+                'profile_url' => $user->profile_url,
+                'usuario' => $user->load('images')
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Error al actualizar foto de perfil'], 500);
+        }
     }
 
     /**
@@ -139,3 +172,8 @@ class UserController extends Controller
         //
     }
 }
+
+
+
+//siendo la 1 de la mañana escrib este comentario con 3 horas de sueño y con 2 latas de monster encima
+//siendo la 1 de la mañana escrib este comentario con 3 horas de sueño y con 2 latas de monster encima

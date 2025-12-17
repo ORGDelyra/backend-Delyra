@@ -18,20 +18,27 @@ class ProductController extends Controller
     public function index()
     {
         $user = Auth::user();
-        if(!$user || $user->id_rol != 3){
+        if(!$user || !in_array($user->id_rol, [1,3])){
             return response()->json(['mensaje' => 'No autorizado'], 403);
         }
 
-        $products = Product::where('id_usuario', $user->id)
-            ->with(['category', 'images'])
-            ->get();
+        // Si es admin, ver todos los productos; si es vendedor, solo los suyos
+        if($user->id_rol == 1){
+            $products = Product::with(['category', 'images'])->get();
+        } else {
+            $products = Product::where('id_usuario', $user->id)
+                ->with(['category', 'images'])
+                ->get();
+        }
         return response()->json($products);
     }
 
     // Lista pública de productos (catálogo general)
     public function publicIndex()
     {
-        $products = Product::with('category','user')->get();
+        $products = Product::where('cantidad', '>', 0)
+            ->with('category','user','images')
+            ->get();
         return response()->json($products);
     }
 

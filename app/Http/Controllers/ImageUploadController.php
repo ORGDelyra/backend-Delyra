@@ -75,8 +75,6 @@ class ImageUploadController extends Controller
             $response = curl_exec($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             $error = curl_error($ch);
-            /** @phpstan-ignore-next-line */
-            curl_close($ch);
 
             if ($error) {
                 Log::error('Cloudinary cURL error: ' . $error);

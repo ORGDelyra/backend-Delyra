@@ -233,7 +233,7 @@ class CartController extends Controller
         }
 
         $data = $request->validate([
-            'estado_pedido' => 'required|in:pendiente,confirmado,en_preparacion,listo,entregado,recogido'
+            'estado_pedido' => 'required|in:pendiente,confirmado,en_preparacion,listo,en_camino,entregado,recogido'
         ]);
 
         $cart->update(['estado_pedido' => $data['estado_pedido']]);
