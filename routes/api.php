@@ -54,6 +54,11 @@ Route::apiResource('rol', RolController::class);
 
 Route::middleware('auth:sanctum')->group(function () {
 
+    // Chats recientes de soporte (tipo WhatsApp)
+    Route::get('/chat/soporte/recientes', [ChatController::class, 'getRecentChats']);
+
+    // Perfil del usuario autenticado
+    Route::get('/user/profile', [UserController::class, 'profile']);
     // ==========================================
     // RECURSOS API ESTÁNDAR (CRUD completo)
     // ==========================================
@@ -209,11 +214,14 @@ Route::middleware('auth:sanctum')->group(function () {
     // MÉTODOS ESPECIALES - CHAT
     // ==========================================
 
-    // CHAT: Obtener mensajes de un pedido
-    Route::get('/chat/{id_pedido}', [ChatController::class, 'getMessages']);
 
-    // CHAT: Enviar un mensaje en el pedido
-    Route::post('/chat/{id_pedido}/enviar', [ChatController::class, 'sendMessage']);
+    // CHAT: Obtener mensajes de un pedido o soporte
+    Route::get('/chat/{id}', [ChatController::class, 'getMessages']);
+    Route::get('/chat/soporte/{userId}', [ChatController::class, 'getMessages'])->name('chat.soporte.get');
+
+    // CHAT: Enviar un mensaje en el pedido o soporte
+    Route::post('/chat/{id}/enviar', [ChatController::class, 'sendMessage']);
+    Route::post('/chat/soporte/{userId}/enviar', [ChatController::class, 'sendMessage'])->name('chat.soporte.enviar');
 
     // CHAT: Obtener todas las conversaciones del usuario
     Route::get('/conversaciones', [ChatController::class, 'getConversations']);

@@ -4,15 +4,35 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\User;
-use laravel\Sanctum\HasApiTokens;
+// use laravel\Sanctum\HasApiTokens;
+use Illuminate\Support\Facades\Log;
 class UserController extends Controller
 {
+    /**
+     * Devuelve el perfil del usuario autenticado
+     * GET /api/user/profile
+     */
+    public function profile(Request $request)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['mensaje' => 'No autenticado'], 401);
+        }
+        return response()->json(['usuario' => $user->load('images')], 200);
+    }
+
     /**
      * Display a listing of the resource.
      */
     public function index()
     {
-        $users = User::included()->filter()->sort()->get();
+        $query = User::included()->filter()->sort();
+        $perPage = request('per_page');
+        if ($perPage) {
+            $users = $query->paginate($perPage);
+        } else {
+            $users = $query->get();
+        }
         return response()->json($users);
     }
 
@@ -75,7 +95,9 @@ class UserController extends Controller
             'email' => 'sometimes|email|unique:users,email,' . $id,
             'telefono' => 'sometimes|string|max:20',
             'primer_nombre' => 'sometimes|string|max:100',
+            'segundo_nombre' => 'sometimes|string|max:100',
             'primer_apellido' => 'sometimes|string|max:100',
+            'segundo_apellido' => 'sometimes|string|max:100',
             'foto_url' => 'nullable|url',  // URL de foto de perfil (Cloudinary)
             'profile_url' => 'nullable|url',  // Alias para foto_url
         ]);
@@ -110,33 +132,36 @@ class UserController extends Controller
     public function updateProfileImage(Request $request)
     {
         $user = $request->user();
-
         if (!$user) {
-            return response()->json([
-                'mensaje' => 'Error: Usuario no autenticado'
-            ], 401);
+            return response()->json(['message' => 'No autenticado'], 401);
         }
 
-        $request->validate([
-            'profile_url' => 'required|url',
-        ]);
+        $url = $request->input('url') ?? $request->input('profile_url');
+        if (!$url || !filter_var($url, FILTER_VALIDATE_URL)) {
+            return response()->json(['message' => 'URL de imagen no válida'], 422);
+        }
 
-        // Actualizar el campo profile_url directamente en el usuario
-        $user->profile_url = $request->profile_url;
-        $user->save();
+        try {
+            $user->profile_url = $url;
+            $user->save();
 
-        // También guardar en la tabla images para mantener compatibilidad
-        $user->images()->where('type', 'profile')->delete();
-        $user->images()->create([
-            'url' => $request->profile_url,
-            'type' => 'profile',
-            'descripcion' => 'Foto de perfil del usuario',
-        ]);
+            if (method_exists($user, 'images')) {
+                $user->images()->where('type', 'profile')->delete();
+                $user->images()->create([
+                    'url' => $url,
+                    'type' => 'profile',
+                    'descripcion' => 'Foto de perfil del usuario',
+                ]);
+            }
 
-        return response()->json([
-            'mensaje' => 'Foto de perfil actualizada correctamente',
-            'usuario' => $user->load('images')
-        ], 200);
+            return response()->json([
+                'mensaje' => 'Foto de perfil actualizada correctamente',
+                'profile_url' => $user->profile_url,
+                'usuario' => $user->load('images')
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Error al actualizar foto de perfil'], 500);
+        }
     }
 
     /**

@@ -47,7 +47,8 @@ class User extends Authenticatable
     protected $allowFilter = [
         'id',
         'id_rol',
-        'correo'
+        'correo',
+        'busqueda'
     ];
     protected $allowSort = [
         'id',
@@ -117,8 +118,17 @@ class User extends Authenticatable
         $allowFilter = collect($this->allowFilter);
 
         foreach($filters as $filter => $value){
-            if($allowFilter->contains($filter)){
-                $query->where($filter, 'LIKE',"%$$value%");
+            if($filter === 'busqueda') {
+                $query->where(function($q) use ($value) {
+                    $q->where('primer_nombre', 'like', "%$value%")
+                      ->orWhere('segundo_nombre', 'like', "%$value%")
+                      ->orWhere('primer_apellido', 'like', "%$value%")
+                      ->orWhere('segundo_apellido', 'like', "%$value%")
+                      ->orWhere('correo', 'like', "%$value%")
+                      ->orWhere('telefono', 'like', "%$value%") ;
+                });
+            } elseif($allowFilter->contains($filter)) {
+                $query->where($filter, 'LIKE', "%$value%");
             }
         }
 
