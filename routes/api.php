@@ -1,5 +1,4 @@
 <?php
-
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\CartController;
@@ -10,21 +9,22 @@ use App\Http\Controllers\RolController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\ShipmentController;
 use App\Http\Controllers\ShippingController;
-use App\Http\Controllers\UserController;
+use App\Http\Controllers\JobOffersController;
 use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\ImageUploadController;
 use App\Http\Controllers\CloudinaryController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\MercadoPagoController;
+use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
 | API Routes
 |--------------------------------------------------------------------------
-|
+    Route::apiResource('job-offers', JobOffersController::class);
 | Aquí están todas las rutas de la API para el proyecto Delyra
-|
+    Route::get('/negocios/{id}/job-offers', [JobOffersController::class, 'byBusiness']);
 */
 
 // ==========================================
@@ -54,6 +54,11 @@ Route::apiResource('category', CategoryController::class)->except(['index']);
 // ==========================================
 
 Route::middleware('auth:sanctum')->group(function () {
+
+    // Ofertas laborales (CRUD completo y métodos especiales)
+    Route::apiResource('job-offers', JobOffersController::class);
+    // Listar ofertas de una sucursal específica
+    Route::get('/negocios/{id}/job-offers', [JobOffersController::class, 'byBusiness']);
 
     // Chats recientes de soporte (tipo WhatsApp)
     Route::get('/chat/soporte/recientes', [ChatController::class, 'getRecentChats']);

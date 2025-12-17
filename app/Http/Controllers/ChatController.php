@@ -33,10 +33,11 @@ class ChatController extends Controller
         // Agrupar por el otro participante y tomar el último mensaje de cada chat
         $chats = $mensajes->groupBy(function($msg) use ($userId) {
             return $msg->id_remitente == $userId ? $msg->id_destinatario : $msg->id_remitente;
-        })->map(function($msgs, $otherUserId) {
+        })->map(function($msgs, $otherUserId) use ($userId) {
             $ultimo = $msgs->first();
-            $otroUsuario = $ultimo->id_remitente == auth()->id() ? $ultimo->destinatario : $ultimo->remitente;
+            $otroUsuario = $ultimo->id_remitente == $userId ? $ultimo->destinatario : $ultimo->remitente;
             if ($otroUsuario && method_exists($otroUsuario, 'getAttribute')) {
+
                 $id = $otroUsuario->getAttribute('id');
                 $nombre = trim(($otroUsuario->getAttribute('primer_nombre') ?? '') . ' ' . ($otroUsuario->getAttribute('primer_apellido') ?? ''));
                 $correo = $otroUsuario->getAttribute('correo') ?? '';
